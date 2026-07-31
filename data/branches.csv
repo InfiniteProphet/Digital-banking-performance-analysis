@@ -1,0 +1,16 @@
+branch_id,branch_name,city,region,open_date,staff_count
+BR100,New York Branch,New York,Northeast,2006-05-04,19
+BR101,Chicago Branch,Chicago,Midwest,2016-08-10,12
+BR102,Houston Branch,Houston,South,2014-10-26,8
+BR103,Phoenix Branch,Phoenix,West,2011-08-02,22
+BR104,Philadelphia Branch,Philadelphia,Northeast,2011-07-01,31
+BR105,San Antonio Branch,San Antonio,South,2017-11-17,7
+BR106,San Diego Branch,San Diego,West,2006-04-16,30
+BR107,Dallas Branch,Dallas,South,2015-06-18,30
+BR108,Austin Branch,Austin,South,2008-01-09,14
+BR109,Columbus Branch,Columbus,Midwest,2006-05-31,24
+BR110,Charlotte Branch,Charlotte,South,2012-11-24,10
+BR111,Denver Branch,Denver,West,2019-08-20,27
+BR112,Seattle Branch,Seattle,West,2016-01-14,26
+BR113,Boston Branch,Boston,Northeast,2016-06-01,16
+BR114,Atlanta Branch,Atlanta,South,2015-10-06,7
