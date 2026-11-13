@@ -31,41 +31,71 @@ ORDER BY txn_month;
 
 -- ------------------------------------------------------------
 -- KPI 3: Branch performance leaderboard
--- Transaction volume, revenue, and active accounts per branch
+-- Aggregate accounts and transactions separately to avoid join fan-out.
 -- ------------------------------------------------------------
+WITH account_metrics AS (
+    SELECT
+        branch_id,
+        COUNT(*) AS total_accounts,
+        SUM(CASE WHEN status = 'Active' THEN 1 ELSE 0 END) AS active_accounts,
+        AVG(current_balance) AS avg_account_balance
+    FROM accounts
+    GROUP BY branch_id
+),
+transaction_metrics AS (
+    SELECT
+        branch_id,
+        COUNT(*) AS total_transactions,
+        SUM(CASE WHEN transaction_type = 'Fee Charge' THEN -amount ELSE 0 END) AS fee_revenue
+    FROM transactions
+    GROUP BY branch_id
+)
 SELECT
     b.branch_id,
     b.branch_name,
     b.region,
-    COUNT(DISTINCT a.account_id)                          AS total_accounts,
-    COUNT(DISTINCT CASE WHEN a.status = 'Active'
-                         THEN a.account_id END)            AS active_accounts,
-    COUNT(t.transaction_id)                                AS total_transactions,
-    ROUND(SUM(CASE WHEN t.transaction_type = 'Fee Charge'
-                    THEN -t.amount ELSE 0 END), 2)          AS fee_revenue,
-    ROUND(AVG(a.current_balance), 2)                        AS avg_account_balance
+    COALESCE(a.total_accounts, 0) AS total_accounts,
+    COALESCE(a.active_accounts, 0) AS active_accounts,
+    COALESCE(t.total_transactions, 0) AS total_transactions,
+    ROUND(COALESCE(t.fee_revenue, 0), 2) AS fee_revenue,
+    ROUND(a.avg_account_balance, 2) AS avg_account_balance
 FROM branches b
-LEFT JOIN accounts a      ON a.branch_id = b.branch_id
-LEFT JOIN transactions t  ON t.branch_id = b.branch_id
-GROUP BY b.branch_id, b.branch_name, b.region
+LEFT JOIN account_metrics a ON a.branch_id = b.branch_id
+LEFT JOIN transaction_metrics t ON t.branch_id = b.branch_id
 ORDER BY total_transactions DESC;
 
 -- ------------------------------------------------------------
 -- KPI 4: Customer segment behavior
--- Average balance, transaction frequency, and revenue by segment
+-- Aggregate customer balances and transactions independently to avoid
+-- multiplying account balances when a customer has multiple transactions.
 -- ------------------------------------------------------------
+WITH customer_balances AS (
+    SELECT
+        customer_id,
+        SUM(current_balance) AS total_balance
+    FROM accounts
+    GROUP BY customer_id
+),
+customer_activity AS (
+    SELECT
+        customer_id,
+        COUNT(*) AS total_transactions,
+        SUM(CASE WHEN transaction_type = 'Fee Charge' THEN -amount ELSE 0 END) AS fee_revenue
+    FROM transactions
+    GROUP BY customer_id
+)
 SELECT
     c.segment,
-    COUNT(DISTINCT c.customer_id)                          AS customers,
-    ROUND(AVG(a.current_balance), 2)                        AS avg_balance,
-    COUNT(t.transaction_id)                                 AS total_transactions,
-    ROUND(COUNT(t.transaction_id) * 1.0
-          / COUNT(DISTINCT c.customer_id), 2)                AS avg_transactions_per_customer,
-    ROUND(SUM(CASE WHEN t.transaction_type = 'Fee Charge'
-                    THEN -t.amount ELSE 0 END), 2)           AS fee_revenue
+    COUNT(*) AS customers,
+    ROUND(AVG(COALESCE(cb.total_balance, 0)), 2) AS avg_customer_balance,
+    SUM(COALESCE(ca.total_transactions, 0)) AS total_transactions,
+    ROUND(
+        SUM(COALESCE(ca.total_transactions, 0)) * 1.0 / COUNT(*), 2
+    ) AS avg_transactions_per_customer,
+    ROUND(SUM(COALESCE(ca.fee_revenue, 0)), 2) AS fee_revenue
 FROM customers c
-JOIN accounts a       ON a.customer_id = c.customer_id
-LEFT JOIN transactions t ON t.customer_id = c.customer_id
+LEFT JOIN customer_balances cb ON cb.customer_id = c.customer_id
+LEFT JOIN customer_activity ca ON ca.customer_id = c.customer_id
 GROUP BY c.segment
 ORDER BY fee_revenue DESC;
 
