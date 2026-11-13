@@ -68,7 +68,6 @@ campaigns, and revenue growth.
 |---|---|
 | ![Segment Balance](images/segment_avg_balance.png) | ![Dormancy](images/account_dormancy.png) |
 
-*(Add Power BI screenshots here once built — see `powerbi/dashboard_guide.md`.)*
 
 ## Repository Structure
 
