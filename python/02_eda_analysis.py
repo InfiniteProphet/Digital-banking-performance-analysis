@@ -41,6 +41,34 @@ transactions = pd.read_csv(os.path.join(DATA_DIR, "transactions.csv"), parse_dat
 
 transactions["txn_month"] = transactions["transaction_date"].dt.to_period("M").astype(str)
 
+# Basic data-quality checks before calculating KPIs.
+required_columns = {
+    "branches": {"branch_id", "branch_name", "region"},
+    "customers": {"customer_id", "segment"},
+    "accounts": {"account_id", "customer_id", "status", "current_balance"},
+    "transactions": {"transaction_id", "account_id", "branch_id", "transaction_date",
+                     "transaction_type", "channel", "amount"},
+}
+loaded_tables = {
+    "branches": branches,
+    "customers": customers,
+    "accounts": accounts,
+    "transactions": transactions,
+}
+for table_name, required in required_columns.items():
+    missing = required.difference(loaded_tables[table_name].columns)
+    if missing:
+        raise ValueError(f"{table_name}.csv is missing required columns: {sorted(missing)}")
+
+for table_name, frame in loaded_tables.items():
+    if frame.empty:
+        raise ValueError(f"{table_name}.csv contains no records.")
+
+if transactions["transaction_id"].duplicated().any():
+    raise ValueError("Duplicate transaction_id values found in transactions.csv.")
+if accounts["account_id"].duplicated().any():
+    raise ValueError("Duplicate account_id values found in accounts.csv.")
+
 # ---------------------------------------------------------------------------
 # KPI 1: Monthly transaction volume & net cash flow
 # ---------------------------------------------------------------------------
@@ -61,8 +89,6 @@ plt.close(fig)
 # ---------------------------------------------------------------------------
 # KPI 2: Branch performance leaderboard
 # ---------------------------------------------------------------------------
-branch_txn = transactions.merge(accounts[["account_id", "branch_id"]], on="branch_id", how="left") \
-    if "branch_id" in transactions.columns else transactions
 branch_perf = transactions.groupby("branch_id").agg(total_transactions=("transaction_id", "count")).reset_index()
 branch_perf = branch_perf.merge(branches[["branch_id", "branch_name", "region"]], on="branch_id")
 branch_perf = branch_perf.sort_values("total_transactions", ascending=True)
